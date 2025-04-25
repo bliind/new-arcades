@@ -209,9 +209,9 @@ class Scryfall(commands.Cog):
                 )
                 return embed
 
+    @app_commands.command(name='scryfall', description='Get a Scryfall search going')
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    @app_commands.command(name='scryfall', description='Get a Scryfall search going')
     async def scryfall(self, interaction: discord.Interaction, query: str):
         await interaction.response.defer(ephemeral=False)
         embed = await self.get_card([query])
