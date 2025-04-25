@@ -14,7 +14,7 @@ class MyBot(commands.Bot):
         self.use_cogs = use_cogs
         super().__init__(command_prefix='¤', intents=intents)
         self.synced = False
-        self.command_list = [self.reload_cog]
+        self.command_list = [self.cog_reload]
 
     async def setup_hook(self):
         for cog in self.use_cogs:
@@ -37,8 +37,8 @@ class MyBot(commands.Bot):
 
         print('Bot ready to go!')
 
-    @app_commands.command(name='reload_cog', description='Reload a Cog on the bot')
-    async def reload_cog(self, interaction: discord.Interaction, cog: str):
+    @app_commands.command(name='cog_reload', description='Reload a Cog on the bot')
+    async def cog_reload(self, interaction: discord.Interaction, cog: str):
         await interaction.response.defer(ephemeral=True)
 
         if cog in self.use_cogs:
@@ -64,7 +64,7 @@ class MyBot(commands.Bot):
         else:
             await interaction.followup.send(f'Unknown Cog: {cog}')
 
-    @reload_cog.autocomplete('cog')
+    @cog_reload.autocomplete('cog')
     async def autocomplete_cog(self, interaction: discord.Interaction, current: str):
         return [
             app_commands.Choice(name=cog, value=cog) for cog in self.use_cogs if cog.startswith(current)
