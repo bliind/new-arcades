@@ -155,10 +155,6 @@ class Scryfall(commands.Cog):
             embed = await self.get_card(card_search)
             await message.channel.send(embed=embed)
 
-        print(dir(self.bot.tree))
-        print(self.bot.tree._guild_commands)
-        print(self.bot.tree._global_commands)
-
     async def get_card(self, card_search):
         for card_query in card_search:
             # check for flags

@@ -24,8 +24,6 @@ class MyBot(commands.Bot):
         if self.synced:
             return
 
-        self.tree.add_command(self.cog_reload)
-
         # sleep then sync
         await asyncio.sleep(1)
         await self.tree.sync()
