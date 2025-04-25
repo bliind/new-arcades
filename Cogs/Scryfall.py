@@ -79,6 +79,8 @@ class Scryfall(commands.Cog):
         except: pass
         try: card['toughness'] = data['toughness']
         except: pass
+        try: card['loyalty'] = data['loyalty']
+        except: pass
 
         return card
 
@@ -105,6 +107,8 @@ class Scryfall(commands.Cog):
         try: embed.description += f'_{card["flavor"]}_'
         except: pass
         try: embed.description += f'\n{card["power"]}/{card["toughness"]}'
+        except: pass
+        try: embed.description += f'\nLoyalty: {card["loyalty"]}'
         except: pass
 
         embed.set_thumbnail(url=card['images']['normal'])
