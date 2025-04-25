@@ -165,18 +165,16 @@ class Scryfall(commands.Cog):
             legality = False
             if card_query.startswith('@'):
                 art_crop = True
-                card_query = card_query[1:]
             if card_query.startswith('!'):
                 card_img = True
-                card_query = card_query[1:]
             if card_query.startswith('$'):
                 prices = True
-                card_query = card_query[1:]
             if card_query.startswith('?'):
                 rulings = True
-                card_query = card_query[1:]
             if card_query.startswith('#'):
                 legality = True
+
+            if art_crop or card_img or prices or rulings or legality:
                 card_query = card_query[1:]
 
             # if no flags, show regular cards
