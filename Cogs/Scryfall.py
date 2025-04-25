@@ -6,6 +6,8 @@ from discord import app_commands
 from discord.ext import commands
 from urllib.parse import urlencode
 
+tree = None
+
 headers = {
     'User-Agent': 'Arcades-Discord-Bot',
     'Accept': '*/*'
@@ -45,15 +47,6 @@ def call_api(endpoint, parameters=None):
 class Scryfall(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    # add commands to the tree on load
-    async def cog_load(self):
-        self.bot.command_list.append(self.scryfall)
-
-    # remove commands from the tree on load
-    async def cog_unload(self):
-        for server in self.bot.guilds:
-            self.bot.tree.remove_command('scryfall', guild=server)
 
     def make_card_object(self, data):
         card = {
@@ -161,6 +154,10 @@ class Scryfall(commands.Cog):
         if card_search:
             embed = await self.get_card(card_search)
             await message.channel.send(embed=embed)
+
+        print(dir(self.bot.tree))
+        print(self.bot.tree._guild_commands)
+        print(self.bot.tree._global_commands)
 
     async def get_card(self, card_search):
         for card_query in card_search:

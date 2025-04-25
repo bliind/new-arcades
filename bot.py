@@ -14,7 +14,6 @@ class MyBot(commands.Bot):
         self.use_cogs = use_cogs
         super().__init__(command_prefix='¤', intents=intents)
         self.synced = False
-        self.command_list = [self.cog_reload]
 
     async def setup_hook(self):
         for cog in self.use_cogs:
@@ -25,14 +24,11 @@ class MyBot(commands.Bot):
         if self.synced:
             return
 
-        for server in self.guilds:
-            for command in self.command_list:
-                self.tree.add_command(command, guild=server)
+        self.tree.add_command(self.cog_reload)
 
-        # sleep then sync with the guild
+        # sleep then sync
         await asyncio.sleep(1)
-        for server in self.guilds:
-            await self.tree.sync(guild=server)
+        await self.tree.sync()
         self.synced = True
 
         print('Bot ready to go!')
@@ -63,12 +59,6 @@ class MyBot(commands.Bot):
             await interaction.followup.send(f'Reloaded `{cog}`')
         else:
             await interaction.followup.send(f'Unknown Cog: {cog}')
-
-    @cog_reload.autocomplete('cog')
-    async def autocomplete_cog(self, interaction: discord.Interaction, current: str):
-        return [
-            app_commands.Choice(name=cog, value=cog) for cog in self.use_cogs if cog.startswith(current)
-        ]
 
 bot = MyBot(['Scryfall'])
 bot.run(os.getenv('BOT_TOKEN'))
