@@ -48,14 +48,12 @@ class Scryfall(commands.Cog):
 
     # add commands to the tree on load
     async def cog_load(self):
-        # self.bot.command_list.append(self.reload_config)
-        pass
+        self.bot.command_list.append(self.scryfall)
 
     # remove commands from the tree on load
     async def cog_unload(self):
-        # for server in self.bot.guilds:
-            # self.bot.tree.remove_command('reload_config', guild=server)
-        pass
+        for server in self.bot.guilds:
+            self.bot.tree.remove_command('scryfall', guild=server)
 
     def make_card_object(self, data):
         card = {
@@ -99,7 +97,7 @@ class Scryfall(commands.Cog):
 
         return [self.make_card_object(card) for card in data['data']]
 
-    async def show_card(self, card, channel):
+    async def show_card(self, card):
         embed = make_embed(card)
 
         embed.description = f'{card["type"]}\n'
@@ -113,19 +111,19 @@ class Scryfall(commands.Cog):
 
         embed.set_thumbnail(url=card['images']['normal'])
 
-        await channel.send(embed=embed)
+        return embed
 
-    async def show_art_crop(self, card, channel):
+    async def show_art_crop(self, card):
         embed = make_embed(card)
         embed.set_image(url=card['images']['art_crop'])
-        await channel.send(embed=embed)
+        return embed
 
-    async def show_card_img(self, card, channel):
+    async def show_card_img(self, card):
         embed = make_embed(card)
         embed.set_image(url=card['images']['large'])
-        await channel.send(embed=embed)
+        return embed
 
-    async def show_card_prices(self, card, channel):
+    async def show_card_prices(self, card):
         embed = make_embed(card)
         printings = call_api(card['prints_search_uri'].replace(base_url, ''))
         for printing in printings['data']:
@@ -140,26 +138,31 @@ class Scryfall(commands.Cog):
                         price_string += f'{price} TIX • '
             price_string = price_string[0:-3]
             embed.add_field(name=printing['set_name'], value=price_string)
-        await channel.send(embed=embed)
+        return embed
 
-    async def show_card_legalities(self, card, channel):
+    async def show_card_legalities(self, card):
         embed = make_embed(card)
         for fmt, legality in card['legalities'].items():
             embed.add_field(name=fmt, value=legality)
-        await channel.send(embed=embed)
+        return embed
 
-    async def show_card_rulings(self, card, channel):
+    async def show_card_rulings(self, card):
         embed = make_embed(card)
         rulings = call_api(card['rulings_uri'].replace(base_url, ''))
         embed.description = ''
         for ruling in rulings['data']:
             embed.description += f'**{ruling["published_at"]}**\n'
             embed.description += f'{ruling["comment"]}\n\n'
-        await channel.send(embed=embed)
+        return embed
 
     @commands.Cog.listener()
     async def on_message(self, message):
         card_search = re.findall(r'\[\[(.+?)\]\]', message.content)
+        if card_search:
+            embed = await self.get_card(card_search)
+            await message.channel.send(embed=embed)
+
+    async def get_card(self, card_search):
         for card_query in card_search:
             # check for flags
             art_crop = False
@@ -187,21 +190,28 @@ class Scryfall(commands.Cog):
             if isinstance(cards, list):
                 for card in cards:
                     if art_crop:
-                        await self.show_art_crop(card, message.channel)
+                        return await self.show_art_crop(card)
                     elif card_img:
-                        await self.show_card_img(card, message.channel)
+                        return await self.show_card_img(card)
                     elif prices:
-                        await self.show_card_prices(card, message.channel)
+                        return await self.show_card_prices(card)
                     elif rulings:
-                        await self.show_card_rulings(card, message.channel)
+                        return await self.show_card_rulings(card)
                     elif legality:
-                        await self.show_card_legalities(card, message.channel)
+                        return await self.show_card_legalities(card)
                     else:
-                        await self.show_card(card, message.channel)
+                        return await self.show_card(card)
             else:
                 embed = discord.Embed(
                     color=discord.Color.red(),
                     title='Error',
                     description=cards
                 )
-                await message.channel.send(embed=embed)
+                return embed
+
+    @app_commands.command(name='scryfall', description='Get a Scryfall search going')
+    async def scryfall(self, interaction: discord.Interaction, query: str):
+        await interaction.response.defer(ephemeral=False)
+        embed = await self.get_card([query])
+        print(embed)
+        await interaction.followup.send(embed=embed, ephemeral=False)
