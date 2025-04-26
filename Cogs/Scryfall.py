@@ -31,7 +31,7 @@ def make_embed(card, color='purple'):
     return embed
 
 def emojify_mana_cost(mana_cost):
-    callback = lambda g: f'mana{g.group(1).lower()}'
+    callback = lambda g: f'{{mana{g.group(1).lower()}}}'
     mana_cost = re.sub(r'\{(.?)\}', callback, mana_cost)
     mana_cost = mana_cost.format(**manamojis)
 
