@@ -24,7 +24,7 @@ def make_embed(card, color='purple'):
     mana_cost = emojify_mana_cost(card['mana_cost'])
     embed = discord.Embed(
         title=f'{card["name"]} {mana_cost}',
-        url=card['url'],
+        url=card['scryfall_uri'],
         color=color()
     )
 
@@ -44,76 +44,104 @@ def call_api(endpoint, parameters=None):
     resp = requests.get(url, headers=headers)
     return resp.json()
 
+def card_obj(data):
+    card = {}
+    fields = [
+        'name',
+        'mana_cost',
+        'type_line',
+        'oracle_text',
+        'scryfall_uri',
+        'image_uris',
+        'colors',
+        'legalities',
+        'prices',
+        'rulings_uri',
+        'prints_search_uri',
+        'set_name',
+        'flavor_text',
+        'power',
+        'toughness',
+        'loyalty',
+    ]
+
+    for field in fields:
+        try: card[field] = data[field]
+        except: pass
+
+    return card
+
+
 class Scryfall(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     def make_card_object(self, data):
-        card = {
-            "name": data['name'],
-            "mana_cost": data['mana_cost'],
-            "type": data['type_line'],
-            "text": data['oracle_text'],
-            "url": data['scryfall_uri'],
-            "images": data['image_uris'],
-            "colors": data['colors'],
-            "legalities": data['legalities'],
-            "prices": data['prices'],
-            "rulings_uri": data['rulings_uri'],
-            "prints_search_uri": data['prints_search_uri'],
-            "set_name": data['set_name']
-        }
+        cards = []
 
-        try: card["flavor"] = data['flavor_text']
-        except: pass
-        try: card['power'] = data['power']
-        except: pass
-        try: card['toughness'] = data['toughness']
-        except: pass
-        try: card['loyalty'] = data['loyalty']
-        except: pass
+        card = card_obj(data)
+        if 'card_faces' in data:
+            for face in data['card_faces']:
+                face_card = dict(card)
+                face_card.update(card_obj(face))
+                cards.append(face_card)
+        else:
+            cards.append(card)
 
-        return card
+        return cards
 
     async def find_card(self, query):
-        data = call_api('/cards/search', {"q": query})
+        search = call_api('/cards/search', {"q": query})
+        fuzzy = call_api('/cards/named', {"fuzzy": query})
 
-        if data['object'] == 'error':
-            return data['details']
+        # try to return fuzzy first
+        if fuzzy['object'] == 'error':
+            if search['object'] == 'error':
+                return search['details']
 
-        # if more than 1, try fuzzy search.
-        if data['total_cards'] > 1:
-            data = call_api('/cards/named', {"fuzzy": query})
-            if data['object'] == 'error':
-                return data['details']
-            return [self.make_card_object(data)]
+            if search['total_cards'] > 1:
+                if search['total_cards'] > 8:
+                    return f'Too many cards match "{query}", please narrow your query.'
+                # if a few objects, list the options
+                output = {"cards": []}
+                for card in search['data']:
+                    label = f'{card["name"]}'
+                    if 'mana_cost' in card:
+                        label += f' {card["mana_cost"]}'
+                    if 'card_faces' in card and 'mana_cost' in card['card_faces'][0]:
+                        label +=f' {card["card_faces"][0]["mana_cost"]}'
+                    card_string = f'- [{label}]({card["scryfall_uri"]})'
+                    output['cards'].append(f'{emojify_mana_cost(card_string)}')
+                return output
 
-        return [self.make_card_object(card) for card in data['data']]
+            return self.make_card_object(search['data'][0])
+        return self.make_card_object(fuzzy)
+
 
     async def show_card(self, card):
         embed = make_embed(card)
 
-        embed.description = f'{card["type"]}\n'
-        embed.description += emojify_mana_cost(card["text"]) + '\n'
-        try: embed.description += f'_{card["flavor"]}_'
+        embed.description = f'{card["type_line"]}\n'
+        embed.description += emojify_mana_cost(card["oracle_text"]) + '\n'
+        try: embed.description += f'_{card["flavor_text"]}_'
         except: pass
         try: embed.description += f'\n{card["power"]}/{card["toughness"]}'
         except: pass
         try: embed.description += f'\nLoyalty: {card["loyalty"]}'
         except: pass
 
-        embed.set_thumbnail(url=card['images']['normal'])
+        embed.set_thumbnail(url=card['image_uris']['normal'])
 
         return embed
 
     async def show_art_crop(self, card):
         embed = make_embed(card)
-        embed.set_image(url=card['images']['art_crop'])
+        embed.set_image(url=card['image_uris']['art_crop'])
         return embed
 
     async def show_card_img(self, card):
         embed = make_embed(card)
-        embed.set_image(url=card['images']['large'])
+        embed.set_image(url=card['image_uris']['large'])
         return embed
 
     async def show_card_prices(self, card):
@@ -152,10 +180,12 @@ class Scryfall(commands.Cog):
     async def on_message(self, message):
         card_search = re.findall(r'\[\[(.+?)\]\]', message.content)
         if card_search:
-            embed = await self.get_card(card_search)
-            await message.channel.send(embed=embed)
+            embeds = await self.get_card(card_search)
+            for embed in embeds:
+                await message.channel.send(embed=embed)
 
     async def get_card(self, card_search):
+        embeds = []
         for card_query in card_search:
             # check for flags
             art_crop = False
@@ -183,29 +213,40 @@ class Scryfall(commands.Cog):
             if isinstance(cards, list):
                 for card in cards:
                     if art_crop:
-                        return await self.show_art_crop(card)
+                        embeds.append(await self.show_art_crop(card))
                     elif card_img:
-                        return await self.show_card_img(card)
+                        embeds.append(await self.show_card_img(card))
                     elif prices:
-                        return await self.show_card_prices(card)
+                        embeds.append(await self.show_card_prices(card))
                     elif rulings:
-                        return await self.show_card_rulings(card)
+                        embeds.append(await self.show_card_rulings(card))
                     elif legality:
-                        return await self.show_card_legalities(card)
+                        embeds.append(await self.show_card_legalities(card))
                     else:
-                        return await self.show_card(card)
+                        embeds.append(await self.show_card(card))
+            elif isinstance(cards, dict):
+                description = '\n'.join(cards['cards'])
+                embed = discord.Embed(
+                    color=discord.Color.greyple(),
+                    title='Multiple Cards Match',
+                    description=description
+                )
+                embeds.append(embed)
             else:
                 embed = discord.Embed(
                     color=discord.Color.red(),
                     title='Error',
                     description=cards
                 )
-                return embed
+                embeds.append(embed)
+
+        return embeds
 
     @app_commands.command(name='scryfall', description='Get a Scryfall search going')
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def scryfall(self, interaction: discord.Interaction, query: str):
         await interaction.response.defer(ephemeral=False)
-        embed = await self.get_card([query])
-        await interaction.followup.send(embed=embed, ephemeral=False)
+        embeds = await self.get_card([query])
+        for embed in embeds:
+            await interaction.followup.send(embed=embed, ephemeral=False)
