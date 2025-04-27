@@ -2,6 +2,7 @@ import requests
 import discord
 import json
 import re
+from thefuzz import fuzz
 from discord import app_commands
 from discord.ext import commands
 from urllib.parse import urlencode
@@ -21,12 +22,16 @@ with open('manamojis.json') as s:
 
 def make_embed(card, color='purple'):
     color = getattr(discord.Color, color)
-    mana_cost = emojify_mana_cost(card['mana_cost'])
+    # mana_cost = emojify_mana_cost(card['mana_cost'])
+    # title=f'{card["name"]} {mana_cost}'
     embed = discord.Embed(
-        title=f'{card["name"]} {mana_cost}',
+        description='',
         url=card['scryfall_uri'],
         color=color()
     )
+    embed.title = card['name']
+    if 'mana_cost' in card:
+        embed.title += f' {emojify_mana_cost(card["mana_cost"])}'
 
     return embed
 
@@ -63,6 +68,8 @@ def card_obj(data):
         'power',
         'toughness',
         'loyalty',
+        'card_faces',
+        'layout'
     ]
 
     for field in fields:
@@ -80,6 +87,7 @@ class Scryfall(commands.Cog):
         cards = []
 
         card = card_obj(data)
+        return [card]
         if 'card_faces' in data:
             for face in data['card_faces']:
                 face_card = dict(card)
@@ -117,31 +125,68 @@ class Scryfall(commands.Cog):
             return self.make_card_object(search['data'][0])
         return self.make_card_object(fuzzy)
 
-
     async def show_card(self, card):
         embed = make_embed(card)
+        if 'card_faces' in card:
+            for index, face in enumerate(card['card_faces']):
+                if index == 0:
+                    embed.title = face['name']
+                    if 'mana_cost' in face:
+                        embed.title += f' {emojify_mana_cost(face["mana_cost"])}'
+                    try:
+                        embed.set_thumbnail(url=face['image_uris']['normal'])
+                    except:
+                        embed.set_thumbnail(url=card['image_uris']['normal'])
+                else:
+                    embed.description += f'**{face["name"]}**'
+                    if 'mana_cost' in face:
+                        embed.description += f' {emojify_mana_cost(face["mana_cost"])}'
+                    embed.description += '\n'
+                embed.description += f'{face["type_line"]}\n'
+                embed.description += emojify_mana_cost(face['oracle_text'])
+                try: embed.description += f'\n_{face["flavor_text"]}_'
+                except: pass
+                try: embed.description += f'\n{face["power"]}/{face["toughness"]}'
+                except: pass
+                try: embed.description += f'\nLoyalty: {face["loyalty"]}'
+                except: pass
 
-        embed.description = f'{card["type_line"]}\n'
-        embed.description += emojify_mana_cost(card["oracle_text"]) + '\n'
-        try: embed.description += f'_{card["flavor_text"]}_'
-        except: pass
-        try: embed.description += f'\n{card["power"]}/{card["toughness"]}'
-        except: pass
-        try: embed.description += f'\nLoyalty: {card["loyalty"]}'
-        except: pass
-
-        embed.set_thumbnail(url=card['image_uris']['normal'])
+                if index == 0:
+                    embed.description += '\n---------\n'
+        else:
+            embed.title = card['name']
+            if 'mana_cost' in card:
+                embed.title += f' {emojify_mana_cost(card["mana_cost"])}'
+            embed.description = f'{card["type_line"]}\n'
+            embed.description += emojify_mana_cost(card["oracle_text"]) + '\n'
+            try: embed.description += f'_{card["flavor_text"]}_'
+            except: pass
+            try: embed.description += f'\n{card["power"]}/{card["toughness"]}'
+            except: pass
+            try: embed.description += f'\nLoyalty: {card["loyalty"]}'
+            except: pass
+            embed.set_thumbnail(url=card['image_uris']['normal'])
 
         return embed
 
-    async def show_art_crop(self, card):
+    async def show_art_crop(self, card, query):
         embed = make_embed(card)
-        embed.set_image(url=card['image_uris']['art_crop'])
+        if 'card_faces' in card and card['layout'] != 'adventure':
+            for face in card['card_faces']:
+                if fuzz.ratio(query.lower(), face['name'].lower()) > 40:
+                    embed.set_image(url=face['image_uris']['art_crop'])
+        else:
+            embed.set_image(url=card['image_uris']['art_crop'])
         return embed
 
-    async def show_card_img(self, card):
+    async def show_card_img(self, card, query):
         embed = make_embed(card)
-        embed.set_image(url=card['image_uris']['large'])
+        if 'card_faces' in card and card['layout'] != 'adventure':
+            for face in card['card_faces']:
+                if fuzz.ratio(query.lower(), face['name'].lower()) > 40:
+                    embed.set_image(url=face['image_uris']['large'])
+        else:
+            embed.set_image(url=card['image_uris']['large'])
         return embed
 
     async def show_card_prices(self, card):
@@ -213,9 +258,9 @@ class Scryfall(commands.Cog):
             if isinstance(cards, list):
                 for card in cards:
                     if art_crop:
-                        embeds.append(await self.show_art_crop(card))
+                        embeds.append(await self.show_art_crop(card, card_query))
                     elif card_img:
-                        embeds.append(await self.show_card_img(card))
+                        embeds.append(await self.show_card_img(card, card_query))
                     elif prices:
                         embeds.append(await self.show_card_prices(card))
                     elif rulings:
