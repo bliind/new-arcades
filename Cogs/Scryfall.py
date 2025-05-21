@@ -100,7 +100,11 @@ class Scryfall(commands.Cog):
 
     async def find_card(self, query):
         search = call_api('/cards/search', {"q": query})
-        fuzzy = call_api('/cards/named', {"fuzzy": query})
+        # if the person is doing a search with params, only use search api
+        if ' ' in query and ':' in query:
+            fuzzy = {'object': 'error', 'details': 'fuzzy match not available for searches'}
+        else:
+            fuzzy = call_api('/cards/named', {"fuzzy": query})
 
         # try to return fuzzy first
         if fuzzy['object'] == 'error':
