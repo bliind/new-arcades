@@ -41,8 +41,8 @@ def printable_card_list(cards):
         if item['quantity'] > 1:
             output += f'{item["quantity"]}x '
         output += f'{card["name"]} '
-        # if 'mana_cost' in card:
-        #     output += emojify_mana_cost(card['mana_cost'])
+        if 'mana_cost' in card:
+            output += emojify_mana_cost(card['mana_cost'])
         output += '\n'
     return output
 
@@ -56,19 +56,22 @@ def common_embed(data):
         title=f'{deck_name} ({deck_format})',
         url=deck_link
     )
-    embed.set_footer(text='Moxfield.com')
+    if 'main' in data:
+        card_image_url = f'https://assets.moxfield.net/cards/card-{data["main"]["id"]}-art_crop.jpg'
+        embed.set_thumbnail(url=card_image_url)
+    else:
+        embed.set_thumbnail(url='https://i.imgur.com/HKKheS6.png')
+    embed.set_footer(icon_url='https://i.imgur.com/HKKheS6.png', text='Moxfield')
 
     return embed
 
 def sort_by_usd(cards):
-    default_value = float('inf')
     def sort_callback(item):
+        default_value = float('inf')
         key = 'usd_foil' if item['isFoil'] else 'usd'
         return float(item.get('card', {}).get('prices', {}).get(key, default_value))
 
-    sorted_cards = sorted(cards, key=sort_callback, reverse=True)
-
-    return sorted_cards
+    return sorted(cards, key=sort_callback, reverse=True)
 
 def split_deck_into_types(deck):
     lands = get_types(deck, 'Land')
@@ -97,11 +100,12 @@ def make_deck_embed(data):
     cards = split_deck_into_types(data['mainboard'].values())
 
     if 'commanders' in data:
+        embed.description = '### Commanders:\n'
         for commander in data['commanders'].values():
             card_name = commander['card']['name']
-            # if 'mana_cost' in commander['card']:
-            #     card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
-            embed.add_field(name='Commanders', value=card_name)
+            if 'mana_cost' in commander['card']:
+                card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
+            embed.description += f'{card_name}\n'
 
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
@@ -125,12 +129,12 @@ def make_collapsed_deck_embed(data):
     embed.description = ''
 
     if 'commanders' in data:
-        embed.description += '## Commanders:\n'
+        embed.description += '### Commanders:\n'
         for commander in data['commanders'].values():
             card_name = commander['card']['name']
-            # if 'mana_cost' in commander['card']:
-            #     card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
-            embed.description += f'- {card_name}\n'
+            if 'mana_cost' in commander['card']:
+                card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
+            embed.description += f'{card_name}\n'
 
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
@@ -142,6 +146,16 @@ def make_collapsed_deck_embed(data):
 
     return embed
 
+class ExpandDeckView(discord.ui.View):
+    def __init__(self, deckdata, timeout=None):
+        super().__init__(timeout=timeout)
+        self.deckdata = deckdata
+
+    @discord.ui.button(label='View Full Deck', style=discord.ButtonStyle.primary)
+    async def view_full_deck(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = make_deck_embed(self.deckdata)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
 class Moxfield(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -149,11 +163,14 @@ class Moxfield(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         deck_ids = re.findall(r'https://moxfield.com/decks/([^/>]*)', message.content)
+        view = None
+        embed = None
         if deck_ids:
             for deck_id in deck_ids:
                 data = get_deck_data(deck_id)
                 if data['mainboardCount'] > 60:
+                    view = ExpandDeckView(data)
                     embed = make_collapsed_deck_embed(data)
                 else:
                     embed = make_deck_embed(data)
-                await message.reply(embed=embed, mention_author=False)
+                await message.reply(embed=embed, view=view, mention_author=False)
