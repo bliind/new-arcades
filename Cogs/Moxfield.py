@@ -3,6 +3,8 @@ import requests
 import discord
 import json
 import re
+import time
+import asyncio
 from discord import app_commands
 from discord.ext import commands
 from urllib.parse import urlencode
@@ -15,6 +17,9 @@ headers = {
 
 base_url = 'https://api.moxfield.com/v2'
 
+rate_limit = 1.5
+last_api_call = 0
+
 with open('manamojis.json') as s:
     global manamojis
     manamojis = json.load(s)
@@ -26,7 +31,13 @@ def emojify_mana_cost(mana_cost):
 
     return mana_cost
 
-def get_deck_data(deck_id):
+async def get_deck_data(deck_id):
+    global last_api_call
+    current_time = time.time()
+    time_since_last = current_time - last_api_call
+    if time_since_last < rate_limit:
+        await asyncio.sleep(rate_limit - time_since_last)
+
     url = f'{base_url}/decks/all/{deck_id}'
     resp = requests.get(url, headers=headers)
     return resp.json()
@@ -162,12 +173,12 @@ class Moxfield(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        deck_ids = re.findall(r'https://moxfield.com/decks/([^/>]*)', message.content)
+        deck_ids = re.findall(r'https://moxfield.com/decks/([^/>\s]*)', message.content)
         view = None
         embed = None
         if deck_ids:
             for deck_id in deck_ids:
-                data = get_deck_data(deck_id)
+                data = await get_deck_data(deck_id)
                 if data['mainboardCount'] > 60:
                     view = ExpandDeckView(data)
                     embed = make_collapsed_deck_embed(data)
