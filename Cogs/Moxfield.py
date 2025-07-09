@@ -120,7 +120,7 @@ def make_deck_embed(data):
 
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
-        header = f'{label}: {sum(i['quantity'] for i in cardlist)}\n'
+        header = f'{label}: {sum(i["quantity"] for i in cardlist)}\n'
         printable = printable_card_list(cardlist)
         if len(printable) > 1024:
             cards_as_list = printable.split('\n')
@@ -149,7 +149,7 @@ def make_collapsed_deck_embed(data):
 
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
-        header = f'{label}: {sum(i['quantity'] for i in cardlist)}'
+        header = f'{label}: {sum(i["quantity"] for i in cardlist)}'
         text = printable_card_list(cardlist[0:5])
         if len(cardlist) > 5:
             text += '...'
