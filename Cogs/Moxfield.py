@@ -179,7 +179,7 @@ def make_deck_embed(data):
     embed = common_embed(data)
     cards = split_deck_into_types(data['mainboard'].values())
 
-    if 'commanders' in data:
+    if 'commanders' in data and len(data['commanders']) > 0:
         embed.description = '### Commanders:\n'
         for commander in data['commanders'].values():
             card_name = commander['card']['name']
@@ -205,7 +205,7 @@ def make_collapsed_deck_embed(data):
     cards = split_deck_into_types(data['mainboard'].values())
     embed.description = ''
 
-    if 'commanders' in data:
+    if 'commanders' in data and len(data['commanders']) > 0:
         embed.description += '### Commanders:\n'
         for commander in data['commanders'].values():
             card_name = commander['card']['name']
