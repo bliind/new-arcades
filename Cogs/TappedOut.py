@@ -6,78 +6,68 @@ import csv
 from discord import app_commands
 from discord.ext import commands
 from urllib.parse import urlencode
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 
 headers = {
     'User-Agent': 'Arcades-Discord-Bot',
     'Accept': '*/*'
 }
 
-def get_deck_cards(deck_url):
-    parsed = []
-    csv_resp = requests.get(f'{deck_url}?fmt=csv', headers=headers)
-    csv_file = io.StringIO(csv_resp.text)
-    dict_reader = csv.DictReader(csv_file)
+def get_deck_data(stub):
+    url = f'https://tappedout.net/api/deck/widget/?deck={stub}&cols=10'
+    resp = requests.get(url, headers=headers)
+    data = resp.json()
 
-    for row in dict_reader:
-        parsed.append(row)
+    deck_title = data['title']
+    deck_url = data['url']
 
-    return parsed
+    board_html = data['board']
+    soup = BeautifulSoup(board_html, 'html.parser')
 
-def get_deck_title(deck_url):
-    resp = requests.get(deck_url)
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    if soup.title:
-        return soup.title.string
-    return 'MTG Deck'
+    columns = soup.find_all('div', class_='tappedout-board-col')
+    fields = {}
+    for column in columns:
+        header = column.find('h3')
+        if header == None: continue
 
-def get_deck_data(deck_url):
-    cards = get_deck_cards(deck_url)
-    title = get_deck_title(deck_url)
+        fields[header.text] = []
 
-    return {"cards": cards, "title": title}
+        list_items = column.find_all('li', class_='tappedout-member')
+        for list_item in list_items:
+            card_text = ''
+            quantity = "".join([t for t in list_item.contents if type(t) == NavigableString]).strip()
+            card_name = list_item.find('a', class_='card-link').text
+            if quantity == '1x':
+                card_text += f'{card_name}'
+            else:
+                card_text += f'{quantity} {card_name}'
+            fields[header.text].append(card_text)
 
-def split_into_three(input):
-    n = len(input)
-    if n == 0:
-        return [], [], []
-    base_length = n / 3
-    remainder = n % 3
+    return deck_title, deck_url, fields
 
-    length1 = int(base_length + (1 if remainder > 0 else 0))
-    length2 = int(base_length + (1 if remainder > 1 else 0))
-
-    o1 = input[0:length1]
-    o2 = input[length1:length1 + length2]
-    o3 = input[length1 + length2:]
-
-    return o1, o2, o3
-
-def get_name_and_qty(card):
-    string = '- '
-    string += f'{card["Qty"]}x ' if int(card['Qty']) > 1 else ''
-    string += card['Name']
-    return string
-
-def make_embed(cards, deck_url, deck_name = ''):
+def make_deck_embed(deck_title, deck_url, fields):
     embed = discord.Embed(
         color=discord.Color.blue(),
-        description='',
-        title=deck_name,
-        url=deck_url
+        title=deck_title,
+        url=deck_url,
+        description=''
     )
-    try: cmdr = [c for c in cards if c['Commander']][0]
-    except: cmdr = {"Name": ""}
+    embed.set_thumbnail(url='https://s.tappedout.net/s1/img/2017-4.85563b67c976.png')
+    embed.set_footer(text='TappedOut.net')
+    field_count = 1
+    if 'Commander' in fields:
+        embed.description = '### Commanders:\n'
+        embed.description += '\n'.join(fields['Commander'])
 
-    if cmdr['Name']:
-        embed.description = f'## Commander: {cmdr["Name"]}\n\n'
+    sorted_fields = dict(sorted(fields.items(), key=lambda item: len(item[1]), reverse=True))
 
-    mainboard = list(filter(lambda x: x['Board'] == 'main' and x['Name'] != cmdr['Name'], cards))
-    p1, p2, p3 = split_into_three(mainboard)
-
-    embed.add_field(name='', value='\n'.join(list(map(get_name_and_qty, p1))))
-    embed.add_field(name='', value='\n'.join(list(map(get_name_and_qty, p2))))
-    embed.add_field(name='', value='\n'.join(list(map(get_name_and_qty, p3))))
+    for label, cards in sorted_fields.items():
+        if label == 'Commander': continue
+        embed.add_field(name=label, value='\n'.join(cards))
+        if field_count == 2:
+            embed.add_field(name='\u200b', value='\u200b')
+            field_count = 0
+        field_count += 1
 
     return embed
 
@@ -87,9 +77,11 @@ class TappedOut(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        deck_links = re.findall(r'(https://tappedout.net/mtg-decks/[^>]*)', message.content)
-        if deck_links:
-            for deck_link in deck_links:
-                data = get_deck_data(deck_link)
-                embed = make_embed(data['cards'], deck_link, data['title'])
+        deck_stubs = re.findall(r'https://tappedout.net/mtg-decks/([^/>]*)', message.content)
+        if deck_stubs:
+            for deck_stub in deck_stubs:
+                deck_title, deck_url, fields = get_deck_data(deck_stub)
+                embed = make_deck_embed(deck_title, deck_url, fields)
+                # data = get_deck_data(deck_stub)
+                # embed = make_embed(data['cards'], deck_stub, data['title'])
                 await message.reply(embed=embed, mention_author=False)
