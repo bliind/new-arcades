@@ -45,7 +45,7 @@ async def get_deck_data(deck_id):
 def get_types(cards, type):
     return list(filter(lambda x: type in x['card']['type_line'], cards))
 
-def printable_card_list(cards, plain_mana=False):
+def printable_card_list(cards, no_mana=True):
     output = ''
     for item in cards:
         card = item['card']
@@ -53,9 +53,7 @@ def printable_card_list(cards, plain_mana=False):
             output += f'{item["quantity"]}x '
         output += f'{card["name"]} '
         if 'mana_cost' in card:
-            if plain_mana:
-                output += card['mana_cost']
-            else:
+            if not no_mana:
                 output += emojify_mana_cost(card['mana_cost'])
         output += '\n'
     return output
@@ -185,8 +183,8 @@ def make_deck_embed(data):
         embed.description = '### Commanders:\n'
         for commander in data['commanders'].values():
             card_name = commander['card']['name']
-            if 'mana_cost' in commander['card']:
-                card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
+            # if 'mana_cost' in commander['card']:
+            #     card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
             embed.description += f'{card_name}\n'
 
     field_count = 1
@@ -211,8 +209,8 @@ def make_collapsed_deck_embed(data):
         embed.description += '### Commanders:\n'
         for commander in data['commanders'].values():
             card_name = commander['card']['name']
-            if 'mana_cost' in commander['card']:
-                card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
+            # if 'mana_cost' in commander['card']:
+            #     card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
             embed.description += f'{card_name}\n'
 
     field_count = 1
