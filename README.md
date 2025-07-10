@@ -18,6 +18,7 @@ You can prepend a search with:
 ---
 
 Now deck previews have been added when a URL for a decklist on Moxfield, Archidekt, or TappedOut are posted.
+
 If the deck has more than 50 unique cards, a compact version will show with only 5 of each card type, but can be expanded to the full list in an ephemeral message ("only you can see this").
 
 ---
