@@ -189,11 +189,16 @@ def make_deck_embed(data):
                 card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
             embed.description += f'{card_name}\n'
 
+    field_count = 1
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
         fields = fit_cardlist_text_in_field(label, cardlist)
         for field in fields:
             embed.add_field(name=field[0], value=field[1])
+            if field_count == 2:
+                embed.add_field(name='\u200b', value='\u200b')
+                field_count = 0
+            field_count += 1
 
     return embed
 
@@ -210,6 +215,7 @@ def make_collapsed_deck_embed(data):
                 card_name += f' {emojify_mana_cost(commander["card"]["mana_cost"])}'
             embed.description += f'{card_name}\n'
 
+    field_count = 1
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
         header = f'{label}: {sum(i["quantity"] for i in cardlist)}'
@@ -217,6 +223,10 @@ def make_collapsed_deck_embed(data):
         if len(cardlist) > 5:
             text += '...'
         embed.add_field(name=header, value=text)
+        if field_count == 2:
+            embed.add_field(name='\u200b', value='\u200b')
+            field_count = 0
+        field_count += 1
 
     return embed
 
