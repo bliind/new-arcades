@@ -45,7 +45,7 @@ async def get_deck_data(deck_id):
 def get_types(cards, type):
     return list(filter(lambda x: type in x['card']['type_line'], cards))
 
-def printable_card_list(cards):
+def printable_card_list(cards, plain_mana=False):
     output = ''
     for item in cards:
         card = item['card']
@@ -53,7 +53,10 @@ def printable_card_list(cards):
             output += f'{item["quantity"]}x '
         output += f'{card["name"]} '
         if 'mana_cost' in card:
-            output += emojify_mana_cost(card['mana_cost'])
+            if plain_mana:
+                output += card['mana_cost']
+            else:
+                output += emojify_mana_cost(card['mana_cost'])
         output += '\n'
     return output
 
@@ -106,6 +109,74 @@ def split_deck_into_types(deck):
 
     return dict(sorted(cards.items(), key=lambda item: len(item[1]), reverse=True))
 
+def cut_in_two(cardlist, total_chars):
+    total_chars = sum(len(s) for s in cardlist)
+    target_char_count = total_chars / 2
+
+    current_char_count = 0
+    split_index = 0
+
+    for i, s in enumerate(cardlist):
+        if current_char_count + len(s) >= target_char_count:
+            split_index = i + 1
+            break
+        current_char_count += len(s)
+        split_index = i + 1
+
+    return (cardlist[0:split_index], cardlist[split_index:])
+
+def cut_in_three(cardlist, total_chars):
+    total_chars = sum(len(s) for s in cardlist)
+    target_one_third = total_chars / 3
+    target_two_thirds = 2 * total_chars / 3
+
+    current_char_count = 0
+    split_index_1 = 0
+    split_index_2 = 0
+
+    found_split_1 = False
+
+    for i, s in enumerate(cardlist):
+        current_char_count += len(s)
+        if not found_split_1 and current_char_count >= target_one_third:
+            split_index_1 = i + 1
+            found_split_1 = True
+        if found_split_1 and current_char_count >= target_two_thirds:
+            split_index_2 = i + 1
+            break
+
+    first_third = cardlist[0:split_index_1]
+    second_third = cardlist[split_index_1:split_index_2]
+    third_third = cardlist[split_index_2:]
+
+    return (first_third, second_third, third_third)
+
+def fit_cardlist_text_in_field(label, cardlist):
+    fields = []
+    header = f'{label}: {sum(i["quantity"] for i in cardlist)}\n'
+    printable = printable_card_list(cardlist)
+    total_chars = len(printable)
+    if total_chars > 1024:
+        cards_as_list = printable.split('\n')
+        first_half, second_half = cut_in_two(cards_as_list, total_chars)
+        first_half = '\n'.join(first_half)
+        second_half = '\n'.join(second_half)
+        if len(first_half) > 1024 or len(second_half) > 1024:
+            first_third, second_third, third_third = cut_in_three(cards_as_list, total_chars)
+            first_third = '\n'.join(first_third)
+            second_third = '\n'.join(second_third)
+            third_third = '\n'.join(third_third)
+            fields.append((header, first_third))
+            fields.append(('', second_third))
+            fields.append(('', third_third))
+        else:
+            fields.append((header, first_half))
+            fields.append(('', second_half))
+    else:
+        fields.append((header, printable))
+
+    return fields
+
 def make_deck_embed(data):
     embed = common_embed(data)
     cards = split_deck_into_types(data['mainboard'].values())
@@ -120,17 +191,9 @@ def make_deck_embed(data):
 
     for label, cardlist in cards.items():
         if len(cardlist) == 0: continue
-        header = f'{label}: {sum(i["quantity"] for i in cardlist)}\n'
-        printable = printable_card_list(cardlist)
-        if len(printable) > 1024:
-            cards_as_list = printable.split('\n')
-            half = round(len(cards_as_list) / 2)
-            first_half = '\n'.join(cards_as_list[:half])
-            second_half = '\n'.join(cards_as_list[half:])
-            embed.add_field(name=header, value=first_half)
-            embed.add_field(name='', value=second_half)
-        else:
-            embed.add_field(name=header, value=printable)
+        fields = fit_cardlist_text_in_field(label, cardlist)
+        for field in fields:
+            embed.add_field(name=field[0], value=field[1])
 
     return embed
 
