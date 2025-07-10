@@ -3,12 +3,15 @@
 A multi-purpose MTG discord bot.
 
 Originally created for a Scryfall search that allows the advanced parameters the website does.
+
 This is achievable by putting card names in [[double brackets]] or by using the /scryfall command
+
 Syntax such as `e:lea` or `cn:2` or `e:lea cn:2` is valid
+
 You can prepend a search with:
 - ! - Card Image
 - @ - Art Crop Image
-- # - Format Legalities
+- \# - Format Legalities
 - $ - Prices
 - ? - Rulings
 
