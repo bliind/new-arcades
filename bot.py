@@ -58,6 +58,5 @@ class MyBot(commands.Bot):
         else:
             await interaction.followup.send(f'Unknown Cog: {cog}')
 
-bot = MyBot(['Scryfall', 'TappedOut', 'Moxfield', 'Archidekt'])
+bot = MyBot(['Scryfall', 'TappedOut', 'Moxfield', 'Archidekt', 'Utility'])
 bot.run(os.getenv('BOT_TOKEN'))
-
