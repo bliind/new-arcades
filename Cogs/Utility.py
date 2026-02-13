@@ -21,7 +21,7 @@ class Utility(commands.Cog):
         for _ in range(int(number)):
             results.append(random.randint(1, int(sides)))
 
-        plural = 's' if int(number) > 1 else ''
-        message = f'roll: {sum(results)}'
-        message += f'\n-# {number} d{sides}{plural}: ' + ', '.join(map(str, results))
+        message = f'{sum(results)}'
+        if int(number) > 1:
+            message += f'\n-# {number} d{sides}s: ' + ', '.join(map(str, results))
         await interaction.response.send_message(message)
