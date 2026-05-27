@@ -25,3 +25,21 @@ class Utility(commands.Cog):
         if int(number) > 1:
             message += f'\n-# {number} d{sides}s: ' + ', '.join(map(str, results))
         await interaction.response.send_message(message)
+
+    @app_commands.command(name='sarcasm', description='Do the SaRcAsM thing with a string')
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
+    async def sarcasm_command(self, interaction: discord.Interaction, message: str, image: discord.Attachment|None = None):
+        output = ''
+        toggle = True
+        for char in message:
+            if char.isalpha():
+                output += char.upper() if toggle else char.lower()
+                toggle = not toggle
+            else:
+                output += char
+
+        if image:
+            await interaction.response.send_message(output, file=await image.to_file())
+        else:
+            await interaction.response.send_message(output)
