@@ -1,5 +1,6 @@
 import random
 import discord
+from typing import Union
 from discord import app_commands
 from discord.ext import commands
 
@@ -29,7 +30,7 @@ class Utility(commands.Cog):
     @app_commands.command(name='sarcasm', description='Do the SaRcAsM thing with a string')
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def sarcasm_command(self, interaction: discord.Interaction, message: str, image: discord.Attachment|None = None):
+    async def sarcasm_command(self, interaction: discord.Interaction, message: str, image: Union[discord.Attachment, None] = None):
         output = ''
         toggle = True
         for char in message:
