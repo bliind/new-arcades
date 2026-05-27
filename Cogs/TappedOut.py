@@ -1,11 +1,7 @@
+import re
 import requests
 import discord
-import re
-import io
-import csv
-from discord import app_commands
 from discord.ext import commands
-from urllib.parse import urlencode
 from bs4 import BeautifulSoup, NavigableString
 
 headers = {
@@ -28,14 +24,15 @@ def get_deck_data(stub):
     fields = {}
     for column in columns:
         header = column.find('h3')
-        if header == None: continue
+        if not header:
+            continue
 
         fields[header.text] = []
 
         list_items = column.find_all('li', class_='tappedout-member')
         for list_item in list_items:
             card_text = ''
-            quantity = "".join([t for t in list_item.contents if type(t) == NavigableString]).strip()
+            quantity = "".join([t for t in list_item.contents if isinstance(t, NavigableString)]).strip()
             card_name = list_item.find('a', class_='card-link').text
             if quantity == '1x':
                 card_text += f'{card_name}'
@@ -64,7 +61,8 @@ def make_deck_embed(deck_title, deck_url, fields, full_view=False):
     compact = unique_cards > 50
     field_count = 1
     for label, cards in sorted_fields.items():
-        if label == 'Commander': continue
+        if label == 'Commander':
+            continue
 
         if compact and not full_view:
             smol = cards[0:5]
@@ -105,7 +103,7 @@ class TappedOut(commands.Cog):
                 embed, compact = make_deck_embed(deck_title, deck_url, fields)
                 if compact:
                     view = ExpandDeckView(deck_title, deck_url, fields)
+                    await message.reply(embed=embed, view=view, mention_author=False)
                 else:
                     view = None
-
-                await message.reply(embed=embed, view=view, mention_author=False)
+                    await message.reply(embed=embed, mention_author=False)

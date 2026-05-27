@@ -29,15 +29,17 @@ def make_embed(card, color='purple'):
         url=card['scryfall_uri'],
         color=color()
     )
-    embed.title = card['name']
+    embed.title = str(card['name'])
     if 'mana_cost' in card:
         embed.title += f' {emojify_mana_cost(card["mana_cost"])}'
 
     return embed
 
+def extract_emoji_from_match(g: re.Match):
+    return f'{{mana{g.group(1).lower()}}}'
+
 def emojify_mana_cost(mana_cost):
-    callback = lambda g: f'{{mana{g.group(1).lower()}}}'
-    mana_cost = re.sub(r'\{(.?\/?.?)\}', callback, mana_cost)
+    mana_cost = re.sub(r'\{(.?\/?.?)\}', extract_emoji_from_match, mana_cost)
     mana_cost = mana_cost.replace('/', '').format(**manamojis)
 
     return mana_cost
@@ -73,8 +75,10 @@ def card_obj(data):
     ]
 
     for field in fields:
-        try: card[field] = data[field]
-        except: pass
+        try:
+            card[field] = data[field]
+        except KeyError:
+            pass
 
     return card
 
@@ -131,15 +135,17 @@ class Scryfall(commands.Cog):
 
     async def show_card(self, card):
         embed = make_embed(card)
+        embed.description = str(embed.description)
+
         if 'card_faces' in card:
             for index, face in enumerate(card['card_faces']):
                 if index == 0:
-                    embed.title = face['name']
+                    embed.title = str(face['name'])
                     if 'mana_cost' in face:
                         embed.title += f' {emojify_mana_cost(face["mana_cost"])}'
                     try:
                         embed.set_thumbnail(url=face['image_uris']['normal'])
-                    except:
+                    except Exception:
                         embed.set_thumbnail(url=card['image_uris']['normal'])
                 else:
                     embed.description += f'**{face["name"]}**'
@@ -148,27 +154,39 @@ class Scryfall(commands.Cog):
                     embed.description += '\n'
                 embed.description += f'{face["type_line"]}\n'
                 embed.description += emojify_mana_cost(face['oracle_text'])
-                try: embed.description += f'\n_{face["flavor_text"]}_'
-                except: pass
-                try: embed.description += f'\n{face["power"]}/{face["toughness"]}'
-                except: pass
-                try: embed.description += f'\nLoyalty: {face["loyalty"]}'
-                except: pass
+                try:
+                    embed.description += f'\n_{face["flavor_text"]}_'
+                except KeyError:
+                    pass
+                try:
+                    embed.description += f'\n{face["power"]}/{face["toughness"]}'
+                except KeyError:
+                    pass
+                try:
+                    embed.description += f'\nLoyalty: {face["loyalty"]}'
+                except KeyError:
+                    pass
 
                 if index == 0:
                     embed.description += '\n---------\n'
         else:
-            embed.title = card['name']
+            embed.title = str(card['name'])
             if 'mana_cost' in card:
                 embed.title += f' {emojify_mana_cost(card["mana_cost"])}'
             embed.description = f'{card["type_line"]}\n'
             embed.description += emojify_mana_cost(card["oracle_text"]) + '\n'
-            try: embed.description += f'_{card["flavor_text"]}_'
-            except: pass
-            try: embed.description += f'\n{card["power"]}/{card["toughness"]}'
-            except: pass
-            try: embed.description += f'\nLoyalty: {card["loyalty"]}'
-            except: pass
+            try:
+                embed.description += f'_{card["flavor_text"]}_'
+            except KeyError:
+               pass
+            try:
+                embed.description += f'\n{card["power"]}/{card["toughness"]}'
+            except KeyError:
+               pass
+            try:
+                embed.description += f'\nLoyalty: {card["loyalty"]}'
+            except KeyError:
+               pass
             embed.set_thumbnail(url=card['image_uris']['normal'])
 
         return embed

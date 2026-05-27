@@ -5,9 +5,7 @@ import json
 import re
 import time
 import asyncio
-from discord import app_commands
 from discord.ext import commands
-from urllib.parse import urlencode
 
 USER_AGENT = os.environ.get('MOXFIELD_UA')
 headers = {
@@ -24,9 +22,11 @@ with open('manamojis.json') as s:
     global manamojis
     manamojis = json.load(s)
 
+def extract_emoji_from_match(g: re.Match):
+    return f'{{mana{g.group(1).lower()}}}'
+
 def emojify_mana_cost(mana_cost):
-    callback = lambda g: f'{{mana{g.group(1).lower()}}}'
-    mana_cost = re.sub(r'\{(.?\/?.?)\}', callback, mana_cost)
+    mana_cost = re.sub(r'\{(.?\/?.?)\}', extract_emoji_from_match, mana_cost)
     mana_cost = mana_cost.replace('/', '').format(**manamojis)
 
     return mana_cost
@@ -100,7 +100,6 @@ def split_deck_into_types(deck):
         'Artifacts': sort_by_usd(artifacts),
         'Instants': sort_by_usd(instants),
         'Sorceries': sort_by_usd(sorceries),
-        'Artifacts': sort_by_usd(artifacts),
         'Enchantments': sort_by_usd(enchantments),
         'Lands': sort_by_usd(lands),
     }
@@ -189,7 +188,8 @@ def make_deck_embed(data):
 
     field_count = 1
     for label, cardlist in cards.items():
-        if len(cardlist) == 0: continue
+        if len(cardlist) == 0:
+            continue
         fields = fit_cardlist_text_in_field(label, cardlist)
         for field in fields:
             embed.add_field(name=field[0], value=field[1])
@@ -215,7 +215,8 @@ def make_collapsed_deck_embed(data):
 
     field_count = 1
     for label, cardlist in cards.items():
-        if len(cardlist) == 0: continue
+        if len(cardlist) == 0:
+            continue
         header = f'{label}: {sum(i["quantity"] for i in cardlist)}'
         text = printable_card_list(cardlist[0:5])
         if len(cardlist) > 5:
@@ -253,6 +254,7 @@ class Moxfield(commands.Cog):
                 if data['mainboardCount'] > 60:
                     view = ExpandDeckView(data)
                     embed = make_collapsed_deck_embed(data)
+                    await message.reply(embed=embed, view=view, mention_author=False)
                 else:
                     embed = make_deck_embed(data)
-                await message.reply(embed=embed, view=view, mention_author=False)
+                    await message.reply(embed=embed, mention_author=False)

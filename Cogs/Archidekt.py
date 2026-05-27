@@ -1,11 +1,8 @@
 import requests
 import discord
 import re
-import io
-import csv
-from discord import app_commands
 from discord.ext import commands
-from urllib.parse import urlencode
+
 headers = {
     'User-Agent': 'Arcades-Discord-Bot',
     'Accept': '*/*'
@@ -54,14 +51,15 @@ def get_deck_data(deckID):
             "Artifact": [],
             "Instant": [],
             "Sorcery": [],
-            "Artifact": [],
             "Enchantment": [],
             "Land": [],
         }
     }
 
-    try: output['format'] = FORMATS[data['deckFormat']]
-    except: output['format'] = ''
+    try:
+        output['format'] = FORMATS[data['deckFormat']]
+    except KeyError:
+        output['format'] = ''
 
     for card in data['cards']:
         card_name = ''
@@ -111,7 +109,9 @@ def make_deck_embed(deck_data, full_view=False):
 
     fields = []
     for type, cards in types.items():
-        if len(cards) == 0: continue
+        if len(cards) == 0:
+            continue
+
         header = f'{type} ({sum(c[0] for c in cards)})'
         rest = ''
 
@@ -153,7 +153,7 @@ class ExpandDeckView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 class Archidekt(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @commands.Cog.listener()
@@ -165,7 +165,7 @@ class Archidekt(commands.Cog):
                 embed, compact = make_deck_embed(deck_data)
                 if compact:
                     view = ExpandDeckView(deck_data)
+                    await message.reply(embed=embed, view=view, mention_author=False)
                 else:
                     view = None
-
-                await message.reply(embed=embed, view=view, mention_author=False)
+                    await message.reply(embed=embed, mention_author=False)
